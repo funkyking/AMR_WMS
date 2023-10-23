@@ -11,7 +11,15 @@
 
         public string loc_id { get; set;}
 
-        public string Machine_id { get; set;}
+        public string machine_id { get; set;}
+
+        public string lot_id { get; set; }
+
+        public string status { get; set; }
+
+        // Either "STORE STARTED" , "STORE COMPLETED" and "STORE FAULT"
+        public string message { get; set; }
+        
 
     }
 }

@@ -14,61 +14,105 @@ namespace WMS_Web_API.Controllers
     public class TasksController : ControllerBase
     {
         private readonly ApiContext _context;
-        
-        public class ListDisplay
-        { 
-            public string task_id { get; set; }
-        }
-
 
         public TasksController(ApiContext context)
         {
             _context = context;
         }
 
-        // GET: api/Tasks
-        [HttpGet]
-        //public async Task<ActionResult<IEnumerable<Tasks>>> GetTasks()
-        public ActionResult<ListDisplay> GetTasks()
+        [HttpGet("{id?}", Name = "GetTask")]
+        //public IActionResult GetTask(long? id)
+        public IActionResult GetTask(long? id)
         {
-            if (_context.Tasks == null)
+            if (id.HasValue && id.Value != 0)
             {
-                return NotFound();
+                var task = _context.Tasks.FirstOrDefault(t => t.id == id);
+                if (task == null)
+                {
+                    return NotFound();
+                }
+                //return Ok(task); // Return a specific task
+                return new JsonResult(task);
             }
-
-            var newList = new ListDisplay();
-
-            foreach (var item in _context.Tasks)
+            else
             {
-                newList.task_id = item.id.ToString();
-
+                // If no 'id' is provided or 'id' is 0, return the list of all tasks
+                var tasks = _context.Tasks.ToList();
+                if (tasks == null)
+                {
+                    return NotFound();
+                }
+                return new JsonResult(tasks); // Return a list of tasks as JSON
             }
-            return newList;
-            //return await _context.Tasks.ToListAsync();
         }
 
-        // GET: api/Tasks/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Tasks>> GetTasks(long id)
+
+        // Get Requst But Filtered by ID, Type And Status
+        // [Required] Status
+        // [Optional] ID, Type
+        [HttpGet("list/", Name = "GetTaskList")]
+        public IActionResult GetTaskList(long? id, string? _type, string _status)
         {
-          if (_context.Tasks == null)
-          {
-              return NotFound();
-          }
-            var tasks = await _context.Tasks.FindAsync(id);
 
-            if (tasks == null)
+            try
             {
-                return NotFound();
-            }
+                if (_context.Tasks == null)
+                {
+                    return NotFound();
+                }
+                else
+                {
 
-            return tasks;
+                    var filteredTasks = _context.Tasks.Where(task =>
+                                        (!id.HasValue || task.id == id) &&
+                                        (_type == null || task.type == _type) &&
+                                        task.status == _status
+                                         ).ToList();
+
+                    if (filteredTasks.Count > 0)
+                    {
+                        return new JsonResult(filteredTasks);
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+                }
+
+
+
+            }
+            catch (Exception ex)
+            { return StatusCode(500, "An error occurred"); }
+
+           
         }
+
+
+
+        //// GET: api/Tasks/5
+        //[HttpGet("{id}")]
+        //public async Task<ActionResult<Tasks>> GetTask(long id)
+        //{
+        //    if (_context.Tasks == null)
+        //    {
+        //        return NotFound();
+        //    }
+        //    var tasks = await _context.Tasks.FindAsync(id);
+
+        //    if (tasks == null)
+        //    {
+        //        return NotFound();
+        //    }
+
+        //    return tasks;
+        //}
 
         // PUT: api/Tasks/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutTasks(long id, Tasks tasks)
+
+        [HttpPut("{id}", Name = "UpdateTask")]
+        public async Task<IActionResult> PutTask(long id, Tasks tasks)
         {
             if (id != tasks.id)
             {
@@ -98,22 +142,22 @@ namespace WMS_Web_API.Controllers
 
         // POST: api/Tasks
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Tasks>> PostTasks(Tasks tasks)
+        [HttpPost(Name = "PostTask")]
+        public async Task<ActionResult<Tasks>> PostTask(Tasks tasks)
         {
-          if (_context.Tasks == null)
-          {
-              return Problem("Entity set 'ApiContext.Tasks'  is null.");
-          }
+            if (_context.Tasks == null)
+            {
+                return Problem("Entity set 'ApiContext.Tasks'  is null.");
+            }
             _context.Tasks.Add(tasks);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction("GetTasks", new { id = tasks.id }, tasks);             
+            return CreatedAtAction("GetTask", new { id = tasks.id }, tasks);
         }
 
         // DELETE: api/Tasks/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTasks(long id)
+        [HttpDelete("{id}", Name = "DeleteTask")]
+        public async Task<IActionResult> DeleteTask(long id)
         {
             if (_context.Tasks == null)
             {
@@ -130,6 +174,40 @@ namespace WMS_Web_API.Controllers
 
             return NoContent();
         }
+
+        // PUT: api/Tasks/5
+        [HttpPut("Store/{id}", Name ="StoreTask")]
+        public async Task<IActionResult> StoreTask(long id, Tasks tasks)
+        {
+            try
+            {
+                if (id != tasks.id)
+                {
+                    return BadRequest();
+                }
+
+                _context.Entry(tasks).State = EntityState.Modified;
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return NotFound();
+                }
+
+                //return CreatedAtAction()
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "An error occurred");
+            }
+
+          
+        }
+
 
         private bool TasksExists(long id)
         {
